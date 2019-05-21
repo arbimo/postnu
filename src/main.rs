@@ -19,10 +19,10 @@ use crate::postnu::*;
 use std::fs;
 
 //use std::path::PathBuf;
-use structopt::StructOpt;
+use env_logger::Target;
 use log::LevelFilter;
 use std::io::Write;
-use env_logger::Target;
+use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "example", about = "An example of StructOpt usage.")]
@@ -31,16 +31,18 @@ struct Opt {
     #[structopt(long = "controllable")]
     expected_controllable: Option<bool>,
     #[structopt(short = "v")]
-    verbose: bool
+    verbose: bool,
 }
 
 fn main() {
     let opt = Opt::from_args();
     env_logger::builder()
-        .filter_level(if opt.verbose { LevelFilter::Debug } else { LevelFilter::Info })
-        .format(|buf, record| {
-            writeln!(buf, "{}", record.args())
+        .filter_level(if opt.verbose {
+            LevelFilter::Debug
+        } else {
+            LevelFilter::Info
         })
+        .format(|buf, record| writeln!(buf, "{}", record.args()))
         .target(Target::Stdout)
         .init();
 
@@ -91,7 +93,7 @@ fn main() {
     info!("\n\n==== Propagation Result ====");
     info!("Dynamically controllable : {}", dc);
 
-    debug!("Propagated graph:\n{}",  dg);
+    debug!("Propagated graph:\n{}", dg);
     info!("=======================");
 
     match opt.expected_controllable {
@@ -103,8 +105,8 @@ fn main() {
                 eprintln!("Expected uncontrollable but was.");
                 std::process::exit(1);
             }
-        },
-        _ => ()
+        }
+        _ => (),
     }
 
     //    for n in ["E", "Y", "E2", "Y2"].iter() {
@@ -121,12 +123,12 @@ mod tests {
 
     fn sats() -> Vec<&'static str> {
         vec![
-"X E hid 1 1
+            "X E hid 1 1
 E Z req 3 3",
-"X E hid 1 1
+            "X E hid 1 1
 E Y obs 3 3
 E Z req 3 3",
-"X E hid 1 1
+            "X E hid 1 1
 E Y obs 2 2
 E Z req 3 4",
         ]
@@ -164,7 +166,7 @@ E Z req 3 4",
             }
         });
 
-//        println!("{}", postnu);
+        //        println!("{}", postnu);
 
         for g in postnu.all_hidden_groups() {
             println!("{}", g);

@@ -1,4 +1,4 @@
-use log::{debug};
+use log::debug;
 
 use crate::labels::*;
 
@@ -162,7 +162,11 @@ where
             let lab = |i| *postnu.graph.node_weight(i).unwrap();
             let ix = |i| dist_graph.dict[&lab(i)].as_single_node();
 
-            debug!("\nProcessing node: {}  (named {})", ni.index(), postnu.graph.node_weight(ni).unwrap());
+            debug!(
+                "\nProcessing node: {}  (named {})",
+                ni.index(),
+                postnu.graph.node_weight(ni).unwrap()
+            );
 
             let mut l_hi = Label::min(
                 Some(ix(hgroup.root)),
@@ -249,11 +253,16 @@ where
                 let l_a = postnu.label_of(req.source());
                 let l_b = postnu.label_of(req.target());
 
-
                 let a = dist_graph.low(l_a);
                 let b = dist_graph.high(l_b);
                 let l = *d - dist_graph.beta(l_a) + dist_graph.alpha(l_b);
-                debug!("req: {} -> {} : {}   (before delaying: {})", a.index(), b.index(), l, *d);
+                debug!(
+                    "req: {} -> {} : {}   (before delaying: {})",
+                    a.index(),
+                    b.index(),
+                    l,
+                    *d
+                );
 
                 dist_graph.graph.add_edge(a, b, Label::from_scalar(l));
             }
@@ -327,7 +336,6 @@ where
     }
 }
 
-
 pub fn propagate<N, W>(dg: &mut DistanceGraph<N, W>) -> bool
 where
     N: PartialEq + Ord + Copy + Hash,
@@ -360,7 +368,6 @@ where
                     }
                     debug_assert!(ab.target() == b);
                     reduction_queue.push((ab.id(), e));
-
                 }
             }
             Label::Max(_) => {
@@ -375,54 +382,57 @@ where
             }
         }
         for (ab, bc) in reduction_queue.drain(..) {
-
             let a = g.edge_endpoints(ab).unwrap().0;
-            let (b,c) = g.edge_endpoints(bc).unwrap();
+            let (b, c) = g.edge_endpoints(bc).unwrap();
             let ab_weight = g.edge_weight(ab).unwrap();
             let bc_weight = g.edge_weight(bc).unwrap();
 
-            debug!("\nReducing: {} -> {} -> {}", a.index(), b.index(), c.index());
+            debug!(
+                "\nReducing: {} -> {} -> {}",
+                a.index(),
+                b.index(),
+                c.index()
+            );
             debug!("labels: {}     {}", ab_weight, bc_weight);
 
             let opt_ac_label = reduce(ab_weight, bc_weight);
-                    match opt_ac_label {
-                        Result::Ok(Some(lab)) => {
-                            debug!("diff-root cross case.");
-                            // new label derived
-                            debug!("New label derived {} -> {}: {}", a.index(), c.index(), lab);
+            match opt_ac_label {
+                Result::Ok(Some(lab)) => {
+                    debug!("diff-root cross case.");
+                    // new label derived
+                    debug!("New label derived {} -> {}: {}", a.index(), c.index(), lab);
 
-                            let dominator = g
-                                .edges_directed(a, Direction::Outgoing)
-                                .filter(|e| e.target() == c)
-                                .find(|e| e.weight().subsumes(&lab));
-                            match dominator {
-                                None => {
-                                    debug!("Not dominated, add to graph");
-                                    let edge_id = g.add_edge(a, c, lab.clone());
-                                    queue.push(edge_id);
-                                    if lab.is_min() {
-                                        // this edge is negative
-                                        if !cycles.set(a.index(), c.index()) {
-                                            // cycle detected
-                                            debug!("Detected cycle");
-                                            return false;
-                                        }
-                                    }
-                                },
-                                Some(d) => {
-                                    debug!("Dominated by existing: {}", d.weight());
+                    let dominator = g
+                        .edges_directed(a, Direction::Outgoing)
+                        .filter(|e| e.target() == c)
+                        .find(|e| e.weight().subsumes(&lab));
+                    match dominator {
+                        None => {
+                            debug!("Not dominated, add to graph");
+                            let edge_id = g.add_edge(a, c, lab.clone());
+                            queue.push(edge_id);
+                            if lab.is_min() {
+                                // this edge is negative
+                                if !cycles.set(a.index(), c.index()) {
+                                    // cycle detected
+                                    debug!("Detected cycle");
+                                    return false;
                                 }
                             }
-
-                        },
-                        Result::Ok(None) => {
-                            debug!("Same-root cross case: ok");
-                        },
-                        Result::Err(_) => {
-                            debug!("Same-root cross case: Negative self edge in projection");
-                            return false;
+                        }
+                        Some(d) => {
+                            debug!("Dominated by existing: {}", d.weight());
                         }
                     }
+                }
+                Result::Ok(None) => {
+                    debug!("Same-root cross case: ok");
+                }
+                Result::Err(_) => {
+                    debug!("Same-root cross case: Negative self edge in projection");
+                    return false;
+                }
+            }
         }
     }
     debug!("quiescence");

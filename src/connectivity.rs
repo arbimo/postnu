@@ -1,4 +1,3 @@
-
 type Idx = usize;
 
 pub struct ConnGraph {
