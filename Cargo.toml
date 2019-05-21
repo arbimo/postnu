@@ -1,0 +1,11 @@
+[package]
+name = "postnu"
+version = "0.0.1"
+authors = ["Arthur Bit-Monnot <arthur.bitmonnot@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+petgraph = "0.4.13"
+structopt = "0.2"
+log = "0.4"
+env_logger = "0.6.1"
