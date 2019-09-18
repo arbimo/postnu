@@ -26,12 +26,14 @@ impl<W> Link<W> {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq,Debug)]
 pub enum TPType {
     Controllable,
     Observable,
     Hidden,
 }
+
+//type Network<N,W> = s3graph::DiGraph<N,Link<W>>;
 
 pub struct Network<N, W> {
     pub nodes: HashMap<N, NI>,

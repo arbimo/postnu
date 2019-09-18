@@ -11,7 +11,7 @@ use petgraph::prelude::NodeIndex;
 use petgraph::stable_graph::StableDiGraph;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{Debug, Display, Error, Formatter};
 use std::hash::Hash;
 
@@ -20,9 +20,8 @@ type NI = NodeIndex<u32>;
 #[derive(Debug)]
 enum Node<N> {
     Contr(N),
-    Obs(N),
-    HidLow(N),
-    HidHigh(N),
+    CtgLow(N),
+    CtgHigh(N),
 }
 
 #[derive(Debug)]
@@ -141,8 +140,9 @@ where
                 dist_graph.dict.insert(n, Split::of_non_hidden(id));
             }
             TPType::Observable => {
-                let id = dist_graph.graph.add_node(Node::Obs(n));
-                dist_graph.dict.insert(n, Split::of_non_hidden(id));
+                // processed later since we need the alpha/beta information
+//                let id = dist_graph.graph.add_node(Node::Obs(n));
+//                dist_graph.dict.insert(n, Split::of_non_hidden(id));
             }
             TPType::Hidden => {
                 // processed later since we need the alpha/beta information
@@ -150,101 +150,129 @@ where
         }
     }
 
-    for hgroup in postnu.all_hidden_groups().iter() {
-        let mut vertices = Vec::new();
-        hgroup.eyes.iter().for_each(|e| vertices.push(e));
-        hgroup.hiddens.iter().for_each(|e| vertices.push(e));
+    let hidden_groups = postnu.all_hidden_groups();
+    let mut queue: VecDeque<_> = hidden_groups.iter().collect();
+    let mut cnt = 0;
+    while !queue.is_empty() {
+        let hgroup = queue.pop_front().unwrap();
+        let lab = |i| *postnu.graph.node_weight(i).expect("Node is not yet in postnu.graph");
+        match dist_graph.dict.get(&lab(hgroup.root)) {
+            Some(_) => {
+                // we know the root, keep processing
 
-        for &ni in vertices {
-            let dists = hgroup
-                .bellman_ford(ni)
-                .expect("Hidden group with negative cycle");
-            let lab = |i| *postnu.graph.node_weight(i).unwrap();
-            let ix = |i| dist_graph.dict[&lab(i)].as_single_node();
+                // build list of vertices to process
+                // this includes all eyes and hidden timepoints
+                // the root is excluded since it is either controllable (and already in the graph)
+                // or observable (and thus the eye of another hidden group)
+                let mut vertices = Vec::new();
+                hgroup.eyes.iter().for_each(|v| vertices.push(v));
+                hgroup.hiddens.iter().for_each(|v| vertices.push(v));
 
-            debug!(
-                "\nProcessing node: {}  (named {})",
-                ni.index(),
-                postnu.graph.node_weight(ni).unwrap()
-            );
+                for &ni in vertices {
+                    let dists = hgroup
+                        .bellman_ford(ni)
+                        .expect("Hidden group with negative cycle");
+//                    let lab = |i| *postnu.graph.node_weight(i).expect("Node is not yet in postnu.graph");
+                    let ix = |i| dist_graph.dict.get(&lab(i)).expect(&format!("unknown node {}", i.index())).as_single_node();
 
-            let mut l_hi = Label::min(
-                Some(ix(hgroup.root)),
-                -dists.from(hgroup.root),
-                hgroup
-                    .eyes
-                    .iter()
-                    .map(|&i| Wait {
-                        node: ix(i),
-                        delay: -dists.from(i),
-                    })
-                    .collect::<Vec<_>>(),
-            );
-            debug!("l_hi: {}", l_hi);
-            let alpha = -l_hi.scalar().min(
-                l_hi.label()
-                    .waits
-                    .iter()
-                    .map(|w| w.delay)
-                    .min()
-                    .unwrap_or(W::zero()),
-            );
-            debug!("alpha: {}", alpha);
+                    debug!(
+                        "\nProcessing node: {}  (named {})",
+                        ni.index(),
+                        postnu.graph.node_weight(ni).unwrap()
+                    );
 
-            l_hi.add_to_all_terms(alpha);
-            let l_hi = l_hi; // hide by immutable
-            debug!("l_hi+: {}", l_hi);
-            let mut l_lo = Label::max(
-                Some(ix(hgroup.root)),
-                -dists.to(hgroup.root),
-                hgroup
-                    .eyes
-                    .iter()
-                    .map(|&i| Wait {
-                        node: ix(i),
-                        delay: -dists.to(i),
-                    })
-                    .collect(),
-            );
-            debug!("l_lo: {}", l_lo);
-            let beta = -l_lo.scalar().min(
-                l_lo.label()
-                    .waits
-                    .iter()
-                    .map(|w| w.delay)
-                    .min()
-                    .unwrap_or(W::zero()),
-            );
-            debug!("beta: {}", beta);
 
-            l_lo.add_to_all_terms(beta);
-            l_lo.tighten();
-            debug!("l_lo+: {}", l_lo);
-            let l_lo = l_lo;
+                    let mut l_hi = Label::min(
+                        Some(lab(hgroup.root)),
+                        -dists.from(hgroup.root),
+                        hgroup
+                            .eyes
+                            .iter()
+                            .map(|&i| Wait {
+                                node: lab(i),
+                                delay: -dists.from(i),
+                            })
+                            .collect::<Vec<_>>(),
+                    );
+//                    debug!("l_hi: {}", l_hi);
+                    let alpha = -l_hi.scalar().min(
+                        l_hi.label()
+                            .waits
+                            .iter()
+                            .map(|w| w.delay)
+                            .min()
+                            .unwrap_or(W::zero()),
+                    );
+                    debug!("alpha: {}", alpha);
 
-            let lab_e = lab(ni);
-            let ix_root = ix(hgroup.root);
+                    l_hi.add_to_all_terms(alpha);
+                    let l_hi = l_hi; // hide by immutable
+                    debug!("l_hi+: {}", l_hi);
+                    let mut l_lo = Label::max(
+                        Some(ix(hgroup.root)),
+                        -dists.to(hgroup.root),
+                        hgroup
+                            .eyes
+                            .iter()
+                            .map(|&i| Wait {
+                                node: ix(i),
+                                delay: -dists.to(i),
+                            })
+                            .collect(),
+                    );
+                    debug!("l_lo: {}", l_lo);
+                    let beta = -l_lo.scalar().min(
+                        l_lo.label()
+                            .waits
+                            .iter()
+                            .map(|w| w.delay)
+                            .min()
+                            .unwrap_or(W::zero()),
+                    );
+                    debug!("beta: {}", beta);
 
-            if postnu.type_of(ni) == TPType::Hidden {
-                let id_lo = dist_graph.graph.add_node(HidLow(lab_e));
-                let id_hi = dist_graph.graph.add_node(HidHigh(lab_e));
+                    l_lo.add_to_all_terms(beta);
+                    l_lo.tighten();
+                    debug!("l_lo+: {}", l_lo);
+                    let l_lo = l_lo;
 
-                dist_graph.dict.insert(
-                    lab(ni),
-                    Split {
-                        low: id_lo,
-                        high: id_hi,
-                        alpha,
-                        beta,
-                    },
-                );
+                    let lab_e = lab(ni);
+                    let ix_root = ix(hgroup.root);
+
+                    if postnu.type_of(ni) != TPType::Controllable {
+                        let id_lo = dist_graph.graph.add_node(CtgLow(lab_e));
+                        let id_hi = dist_graph.graph.add_node(CtgHigh(lab_e));
+
+                        dist_graph.dict.insert(
+                            lab(ni),
+                            Split {
+                                low: id_lo,
+                                high: id_hi,
+                                alpha,
+                                beta,
+                            },
+                        );
+                    }
+                    let id_lo = dist_graph.dict[&lab(ni)].low;
+                    let id_hi = dist_graph.dict[&lab(ni)].high;
+
+                    dist_graph.graph.add_edge(ix_root, id_lo, l_lo);
+                    dist_graph.graph.add_edge(id_hi, ix_root, l_hi);
+                }
+
+
+            },
+            None => {
+                // the root is not in the graph yet, enqueue at the end
+                // so that when we get back to it the hidden group of which
+                // the root is an eye has been processed.
+                assert_eq!(postnu.type_of(hgroup.root), TPType::Observable);
+                queue.push_back(hgroup);
             }
-            let id_lo = dist_graph.dict[&lab(ni)].low;
-            let id_hi = dist_graph.dict[&lab(ni)].high;
-
-            dist_graph.graph.add_edge(ix_root, id_lo, l_lo);
-            dist_graph.graph.add_edge(id_hi, ix_root, l_hi);
         }
+
+        cnt += 1;
+        assert!(cnt < 1000, "More than 1000 iteration : probably infinite loop caused by invalid network")
     }
 
     for req in postnu.graph.edge_references() {

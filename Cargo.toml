@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 petgraph = "0.4.13"
+s3graph = "0.0.1"
 structopt = "0.2"
 log = "0.4"
 env_logger = "0.6.1"

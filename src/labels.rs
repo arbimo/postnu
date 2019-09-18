@@ -278,9 +278,51 @@ where
     }
 }
 
+//impl<N, W> Display for Label<N, W>
+//where
+//    N: ToIndex + Copy,
+//    W: Display,
+//{
+//    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+//        match self {
+//            Label::Min(Lab {
+//                root: _,
+//                scalar: delay,
+//                waits,
+//            }) => {
+//                if waits.is_empty() {
+//                    write!(f, "- {}", delay)?;
+//                } else {
+//                    write!(f, "- min {} [ ", delay)?;
+//                    for w in waits {
+//                        write!(f, "({}, {}) ", w.node.to_index(), w.delay)?;
+//                    }
+//                    write!(f, "]")?;
+//                }
+//            }
+//            Label::Max(Lab {
+//                root: _,
+//                scalar: delay,
+//                waits,
+//            }) => {
+//                if waits.is_empty() {
+//                    write!(f, "  {}", delay)?;
+//                } else {
+//                    write!(f, "  max {} [ ", delay)?;
+//                    for w in waits {
+//                        write!(f, "({}, {}) ", w.node.to_index(), w.delay)?;
+//                    }
+//                    write!(f, "]")?;
+//                }
+//            }
+//        }
+//        Result::Ok(())
+//    }
+//}
+
 impl<N, W> Display for Label<N, W>
 where
-    N: ToIndex + Copy,
+    N: Display + Copy,
     W: Display,
 {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
@@ -295,7 +337,7 @@ where
                 } else {
                     write!(f, "- min {} [ ", delay)?;
                     for w in waits {
-                        write!(f, "({}, {}) ", w.node.to_index(), w.delay)?;
+                        write!(f, "({}, {}) ", w.node, w.delay)?;
                     }
                     write!(f, "]")?;
                 }
@@ -310,7 +352,7 @@ where
                 } else {
                     write!(f, "  max {} [ ", delay)?;
                     for w in waits {
-                        write!(f, "({}, {}) ", w.node.to_index(), w.delay)?;
+                        write!(f, "({}, {}) ", w.node, w.delay)?;
                     }
                     write!(f, "]")?;
                 }
