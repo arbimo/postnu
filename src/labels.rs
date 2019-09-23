@@ -1,5 +1,4 @@
 use crate::algebra::*;
-use crate::dist_graph::ToIndex;
 use std::fmt::{Display, Error, Formatter};
 
 #[derive(Clone, Copy, Debug)]
