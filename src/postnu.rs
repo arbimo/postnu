@@ -63,17 +63,17 @@ impl<N: Eq + Hash + Copy, W> Network<N, W> {
 
 impl<N: fmt::Display + Eq + Hash + Copy, W: fmt::Display> fmt::Display for Network<N, W> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Nodes:\n")?;
-        for ni in self.graph.node_indices() {
-            write!(f, "  {}: {}\n", ni.index(), self.label_of(ni))?;
-        }
-        write!(f, "Edges:\n")?;
         for ni in self.graph.node_indices() {
             for e in self.graph.edges_directed(ni, Direction::Outgoing) {
-                write!(f, "  {} -> {}  ", e.source().index(), e.target().index())?;
+                write!(
+                    f,
+                    "  {:5}  ->  {:5} : ",
+                    self.graph.node_weight(e.source()).unwrap(),
+                    self.graph.node_weight(e.target()).unwrap()
+                )?;
                 match e.weight() {
-                    Link::MaxDelay(max) => write!(f, "max-delay: {}", *max)?,
-                    Link::Hidden(lb, ub) => write!(f, "hidden: [{}, {}]", *lb, *ub)?,
+                    Link::MaxDelay(max) => write!(f, "max-delay:  {}", *max)?,
+                    Link::Hidden(lb, ub) => write!(f, "hidden:     [{}, {}]", *lb, *ub)?,
                     Link::Observable(lb, ub) => write!(f, "observable: [{}, {}]", *lb, *ub)?,
                 }
                 writeln!(f, "")?;

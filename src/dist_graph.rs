@@ -17,11 +17,21 @@ use std::hash::Hash;
 
 type NI = NodeIndex<u32>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Node<N> {
     Contr(N),
     CtgLow(N),
     CtgHigh(N),
+}
+
+impl<N: Display> Display for Node<N> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        match self {
+            Contr(n) => write!(f, "{}", n),
+            CtgLow(n) => write!(f, "{}_lo", n),
+            CtgHigh(n) => write!(f, "{}_hi", n),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -85,26 +95,16 @@ where
     }
 }
 
-impl<N: Eq + Hash + Debug, W: Display> Display for DistanceGraph<N, W> {
+impl<N: Eq + Hash + Display + Copy, W: Display> Display for DistanceGraph<N, W> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        write!(f, "Nodes:\n")?;
-        for n in self.graph.node_indices() {
-            write!(
-                f,
-                "  {}: {:?}\n",
-                n.index(),
-                self.graph.node_weight(n).unwrap()
-            )?;
-        }
-        write!(f, "Edges:\n")?;
         for n in self.graph.node_indices() {
             for e in self.graph.edges_directed(n, Direction::Outgoing) {
                 write!(
                     f,
-                    "  {} -> {} : ??\n", // TODO : display edge.
-                    e.source().to_index(),
-                    e.target().to_index(),
-                    //                    e.weight()
+                    "  {:5}  ->  {:5} : {}\n",
+                    format!("{}", self.graph.node_weight(e.source()).unwrap()),
+                    format!("{}", self.graph.node_weight(e.target()).unwrap()),
+                    e.weight()
                 )?;
             }
         }
@@ -290,6 +290,7 @@ where
         }
     }
 
+    debug!("Requirement edges: ");
     for req in postnu.graph.edge_references() {
         match req.weight() {
             Link::MaxDelay(d) => {
@@ -300,9 +301,9 @@ where
                 let b = dist_graph.high(l_b);
                 let l = *d - dist_graph.delay_low(l_a) + dist_graph.delay_high(l_b);
                 debug!(
-                    "req: {} -> {} : {}   (before delaying: {})",
-                    a.index(),
-                    b.index(),
+                    "| {} -> {} : {}   (before delaying: {})",
+                    dist_graph.graph.node_weight(a).unwrap(),
+                    dist_graph.graph.node_weight(b).unwrap(),
                     l,
                     *d
                 );
@@ -318,7 +319,7 @@ where
 
 pub fn reduce<N, W>(ab: &Label<N, W>, bc: &Label<N, W>) -> Result<Option<Label<N, W>>, ()>
 where
-    N: PartialEq + Ord + Copy + Debug + Hash,
+    N: PartialEq + Ord + Copy + Display + Hash,
     W: FloatLike + Debug,
 {
     debug_assert!(ab.is_max());
@@ -388,7 +389,7 @@ where
 
 pub fn propagate<N, W>(dg: &mut DistanceGraph<N, W>) -> bool
 where
-    N: PartialEq + Ord + Copy + Hash + Debug,
+    N: PartialEq + Ord + Copy + Hash + Display,
     W: FloatLike + Debug,
 {
     debug!("\n\n==== Propagating ====");
@@ -439,11 +440,11 @@ where
 
             debug!(
                 "\nReducing: {} -> {} -> {}",
-                a.index(),
-                b.index(),
-                c.index()
+                g.node_weight(a).unwrap(),
+                g.node_weight(b).unwrap(),
+                g.node_weight(c).unwrap()
             );
-            debug!("labels: {:?}     {:?}", ab_weight, bc_weight);
+            debug!("labels: {}     {}", ab_weight, bc_weight);
 
             let opt_ac_label = reduce(ab_weight, bc_weight);
             match opt_ac_label {
@@ -451,9 +452,9 @@ where
                     debug!("diff-root cross case.");
                     // new label derived
                     debug!(
-                        "New label derived {} -> {}: {:?}",
-                        a.index(),
-                        c.index(),
+                        "New label derived {} -> {}: {}",
+                        g.node_weight(a).unwrap(),
+                        g.node_weight(c).unwrap(),
                         lab
                     );
 
@@ -476,7 +477,7 @@ where
                             }
                         }
                         Some(d) => {
-                            debug!("Dominated by existing: {:?}", d.weight()); //TODO: use fmt::Display
+                            debug!("Dominated by existing: {}", d.weight());
                         }
                     }
                 }
