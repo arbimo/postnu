@@ -1,0 +1,7 @@
+# SAT
+# Z must be executed after Y and before W
+X E hid 0 100
+E Y obs 0 1
+E W obs 4 5
+Z Y req _ -1
+W Z req _ -1
