@@ -113,18 +113,18 @@ impl<N: Eq + Hash + Display + Copy, W: Display> Display for DistanceGraph<N, W> 
 }
 
 pub trait ToIndex {
-    fn to_index(self) -> usize;
+    fn to_index(&self) -> usize;
 }
 
 impl ToIndex for NI {
-    fn to_index(self) -> usize {
+    fn to_index(&self) -> usize {
         self.index()
     }
 }
 
 impl ToIndex for usize {
-    fn to_index(self) -> usize {
-        self
+    fn to_index(&self) -> usize {
+        *self
     }
 }
 
