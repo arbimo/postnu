@@ -1,0 +1,4 @@
+# SAT
+X Y obs 0 10
+Y W obs 0 10
+Z W req 12 _
