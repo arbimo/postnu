@@ -395,15 +395,24 @@ where
     debug!("\n\n==== Propagating ====");
     let g = &mut dg.graph;
     let mut queue = vec![];
+
+    let mut cycles = ConnGraph::new(10);
+
     for e in g.edge_indices() {
         // add all negative edges in the original graph
         // this will still trigger all reductions since they all involve exactly one negative edge
         if g.edge_weight(e).iter().all(|w| w.is_min()) {
+            // we are dealing with a strictly negative edge
+            // record for future processing
             queue.push(e);
+
+            // add to the negative cycle detector
+            let (src, tgt) = g.edge_endpoints(e).unwrap();
+            if !cycles.set(src.index(), tgt.index()) {
+                return false // negative cycle detected, not controllable
+            }
         }
     }
-
-    let mut cycles = ConnGraph::new(10);
 
     while !queue.is_empty() {
         let e = queue.pop().unwrap();
